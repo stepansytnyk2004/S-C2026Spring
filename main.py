@@ -13,6 +13,9 @@ ur3 = UR3(base=table.top_centre(), scene=[table, target, basket])  # the arm sta
 ur3.add_to_env()  # passive viewer, the moves below drive it
 
 move_robot.solve(ur3, q_target=UR3.home_q, duration=2.5)  # back to home, wherever it started
-move_robot.solve(ur3, ikine=SE3(0.30, 0.10, table.height + 0.25) * SE3.Rx(pi), duration=5.0)  # pre-grasp above the table, tool pointing down
+
+look_down = list(UR3.home_q)
+look_down[4] = look_down[4] + pi  # the rest of the arm stays stacked vertically
+move_robot.solve(ur3, q_target=look_down, duration=5.0)  # fold the camera over to look straight down the table
 
 ur3.close()

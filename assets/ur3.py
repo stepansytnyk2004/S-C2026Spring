@@ -15,7 +15,8 @@ CACHE_DIR = os.path.join(tempfile.gettempdir(), "ur3_mujoco")  # converted meshe
 
 class UR3:
 
-    home_q = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # straight up: shoulder, upper arm and forearm stacked vertically, tool pointing at the ceiling
+    home_q = [0.0, -pi / 2, 0.0, 0.0, pi / 2, 0.0]
 
     def __init__(self, base=None, scene=None):
         # scene objects are compiled into the same model as the arm, the caller supplies them
