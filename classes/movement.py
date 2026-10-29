@@ -2,7 +2,7 @@ import time
 import mujoco
 import numpy as np
 import roboticstoolbox as rtb
-from spatialmath import SE3, SO3
+from spatialmath import SE3
 from math import pi
 
 
@@ -45,7 +45,9 @@ class kinematics():
 
     def fkine(self, q):  # tool pose in the world frame
         self.forward(q)
-        return SE3.Rt(self.data.xmat[self.tool].reshape(3, 3), self.data.xpos[self.tool])
+        # check=False: MuJoCo's xmat is orthogonal to about 3e-15, which is past
+        # spatialmath's tolerance often enough to reject a valid configuration
+        return SE3.Rt(self.data.xmat[self.tool].reshape(3, 3), self.data.xpos[self.tool], check=False)
 
     def jacob0(self, q):  # 6 x n world-frame Jacobian at the tool origin
         self.forward(q)
@@ -59,9 +61,20 @@ class kinematics():
         return bool(np.all(np.isfinite(q)) and np.all(q >= self.lower - tol) and np.all(q <= self.upper + tol))
 
     def pose_error(self, q, pose, weights=None):
-        current = self.fkine(q)
-        position_error = pose.t - current.t
-        rotation_error = SO3(pose.R @ current.R.T, check=False).log(twist=True)
+        self.forward(q)
+        position_error = np.asarray(pose.t, dtype=float) - self.data.xpos[self.tool]
+
+        # MuJoCo's own quaternion arithmetic, which stays well behaved all the way
+        # to half a turn where a matrix logarithm loses its axis.  The difference
+        # is taken in the world frame to match the angular rows of jacob0.
+        wanted, current = np.zeros(4), np.zeros(4)
+        inverse, difference, rotation_error = np.zeros(4), np.zeros(4), np.zeros(3)
+        mujoco.mju_mat2Quat(wanted, np.asarray(pose.R, dtype=float).flatten())
+        mujoco.mju_mat2Quat(current, self.data.xmat[self.tool].copy())
+        mujoco.mju_negQuat(inverse, current)
+        mujoco.mju_mulQuat(difference, wanted, inverse)
+        mujoco.mju_quat2Vel(rotation_error, difference, 1.0)
+
         error = np.r_[position_error, rotation_error]
         return error if weights is None else error * weights
 
@@ -74,7 +87,7 @@ class solve_ikine_with_limits():
         self.mask = mask
         self.tries = tries
 
-    def solve(kin, pose, q_start, mask=None, tries=20, iterations=300, damping=0.05):
+    def solve(kin, pose, q_start, mask=None, tries=20, iterations=300, damping=0.05, max_step=0.2):
         q_start = np.asarray(q_start, dtype=float)
         lower, upper = kin.lower, kin.upper
         weights = np.ones(6) if mask is None else np.asarray(mask, dtype=float)
@@ -105,8 +118,13 @@ class solve_ikine_with_limits():
                     break
                 J = weights[:, None] * kin.jacob0(q)
                 qdot = J.T @ np.linalg.solve(J @ J.T + damping ** 2 * np.eye(6), error)
+                qdot /= max(1.0, np.max(np.abs(qdot)) / max_step)  # a long step can diverge
                 q = np.clip(q + qdot, lower, upper)  # clamped IK, a step never leaves the ranges
+                if not np.all(np.isfinite(q)):
+                    break  # diverged, this seed is spent
 
+            if not np.all(np.isfinite(q)):
+                continue
             error = kin.pose_error(q, pose, weights)
             if np.linalg.norm(error[:3]) > 1e-4 or np.linalg.norm(error[3:]) > 1e-3:
                 continue  # this seed did not converge
