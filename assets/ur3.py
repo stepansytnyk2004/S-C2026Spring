@@ -17,7 +17,10 @@ class UR3:
 
     home_q = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-    def __init__(self, base=None):
+    def __init__(self, base=None, scene=None):
+        # scene objects are compiled into the same model as the arm, the caller supplies them
+        self.scene = [] if scene is None else list(scene)
+
         self.links = [
             ("base_link",      (0, 0, 0),              (0, 0, 0),       None, None,        "base"),
             ("shoulder_link",  (0, 0, 0.1519),         (0, 0, 0),       "z",  (-360, 360), "shoulder"),
@@ -60,6 +63,9 @@ class UR3:
         spec.default.geom.conaffinity = 0
 
         spec.worldbody.add_light(pos=[0, 0, 2], dir=[0, 0, -1], type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
+
+        for obj in self.scene:  # the table and anything else standing in the world
+            obj.add_to_spec(spec)
 
         meshes = mesh_files([link[5] for link in self.links if link[5]])
         parent = spec.worldbody  # the first link hangs off the world
