@@ -8,6 +8,8 @@ import numpy as np
 from math import pi
 from spatialmath import SE3
 
+from assets.camera import holder, add_camera  ### wrist camera and the jar pick-up
+
 
 MESH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meshes")  # meshes beside this file
 CACHE_DIR = os.path.join(tempfile.gettempdir(), "ur3_mujoco")  # converted meshes
@@ -36,6 +38,7 @@ class UR3:
         self.name = "UR3"
         self.joint_names = [link[0] for link in self.links if link[3]]  # links that carry a joint
         self.model, self.data = self.add_to_mujoco()
+        self.holder = holder(self.model, self.data)  # holds the jar once it is picked
         self.viewer = None
 
         # qpos index of each joint, and the body the base pose is written to
@@ -86,6 +89,7 @@ class UR3:
                 body.explicitinertial = True
             parent = body  # the next link nests in this one
 
+        add_camera(parent)  ### parent is now tool0, the camera goes on the flange
         self.spec = spec
         model = spec.compile()
         return model, mujoco.MjData(model)
@@ -98,6 +102,9 @@ class UR3:
 
         self.data.qpos[self._qadr] = np.asarray(self.q, dtype=float).reshape(-1)
         mujoco.mj_forward(self.model, self.data)  # recompute link poses
+        if self.holder.carrying is not None:
+            self.holder.carry()  # jar follows ee
+            mujoco.mj_forward(self.model, self.data)
         self.sync()
 
     # open the viewer, imported here because it needs a window
@@ -114,6 +121,12 @@ class UR3:
     def sync(self):  # redraw, if a viewer is open
         if self.viewer is not None and self.viewer.is_running():
             self.viewer.sync()
+
+    def hold(self):  # keeps sim open for viewing after finished
+        import time
+        while self.viewer is not None and self.viewer.is_running():
+            self.sync()
+            time.sleep(0.02)
 
     def close(self):
         if self.viewer is not None:

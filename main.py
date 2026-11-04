@@ -18,4 +18,5 @@ look_down = list(UR3.home_q)
 look_down[4] = look_down[4] + pi  # the rest of the arm stays stacked vertically
 move_robot.solve(ur3, q_target=look_down, duration=5.0)  # fold the camera over to look straight down the table
 
+ur3.hold()
 ur3.close()
