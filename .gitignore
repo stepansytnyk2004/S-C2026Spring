@@ -1,0 +1,19 @@
+### python
+__pycache__/
+*.pyc
+
+### virtual environment, everyone builds their own from requirements.txt
+.venv/
+venv/
+
+### mujoco logs
+MUJOCO_LOG.TXT
+
+### trial results
+results/*
+!results/summary.txt
+
+### video files
+*.mp4
+*.mov
+*.avi

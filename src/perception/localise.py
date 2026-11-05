@@ -23,6 +23,8 @@ JAR_HEIGHT = (0.03, 0.15)         ### height above the table (m)
 ### measurement uncertainty
 SENSOR_NOISE = (0.0015, 0.0022)   ### d435 depth noise, sigma = a + b * d^2
 CALIBRATION_FLOOR = 0.003         ### calibration error that does not average out (m)
+EDGE_MARGIN = 8
+OBLIQUE = 0.5                     ### seen at an angle
 
 
 ### pixel rays from the calibrated K and distortion, worked out once
@@ -79,12 +81,16 @@ def find_jar(points, roi, plane=None):
     return best, plane
 
 
-### measurement covariance R for the jar filter
-def measurement_covariance(detection, distance):
+### measurement covariance R for the target filter
+def measurement_covariance(detection, T_world_cam):
+    offset = detection["lid"] - T_world_cam.t
+    distance = np.linalg.norm(offset)
+    tilt = np.arccos(np.clip(offset @ T_world_cam.R[:, 2] / distance, -1.0, 1.0))  ### angle off optical axis
     sigma_depth = SENSOR_NOISE[0] + SENSOR_NOISE[1] * distance ** 2
+    sigma_view = OBLIQUE * detection["height"] * np.tan(tilt)  ### part of body hidden when seen at an angle
     top = int(np.sum(detection["cluster"][:, 2] > detection["lid"][2] - 0.01))  ### points on the lid
-    sigma_xy = np.hypot(CALIBRATION_FLOOR, VOXEL / np.sqrt(24))  ### calibration and voxel quantisation
-    sigma_z = np.hypot(CALIBRATION_FLOOR, sigma_depth / np.sqrt(max(top, 1)))  ### calibration and averaged depth noise
+    sigma_xy = np.sqrt(CALIBRATION_FLOOR ** 2 + VOXEL ** 2 / 24 + sigma_view ** 2)
+    sigma_z = np.hypot(CALIBRATION_FLOOR, sigma_depth / np.sqrt(max(top, 1)))
     return np.diag([sigma_xy ** 2, sigma_xy ** 2, sigma_z ** 2])
 
 
@@ -95,6 +101,7 @@ class jar_locator:
         self.dist = np.asarray(calibration["dist"], dtype=float)
         self.T_tool_cam = SE3(np.asarray(calibration["T_tool_cam"], dtype=float), check=False)  ### hand-eye result
         self.projector = depth_projector(self.K, self.dist, tuple(int(s) for s in calibration["size"]))
+        self.size = tuple(int(s) for s in calibration["size"])  ### image width, height
         self.roi = (np.asarray(roi[0], dtype=float), np.asarray(roi[1], dtype=float))
         self.plane = None
 
@@ -107,6 +114,12 @@ class jar_locator:
         detection, self.plane = find_jar(world, self.roi, self.plane)
         if detection is None:
             return None
-        detection["R"] = measurement_covariance(detection, np.linalg.norm(detection["lid"] - T_world_cam.t))
+        p = (detection["cluster"] - T_world_cam.t) @ T_world_cam.R  ### cluster back into the camera frame
+        uv = (p @ self.K.T)[:, :2] / p[:, 2:3]  
+        width, height = self.size
+        if (uv[:, 0].min() < EDGE_MARGIN or uv[:, 0].max() > width - 1 - EDGE_MARGIN or
+            uv[:, 1].min() < EDGE_MARGIN or uv[:, 1].max() > height - 1 - EDGE_MARGIN):
+            return None  ### target cut off at the image edge not trusted
+        detection["R"] = measurement_covariance(detection, T_world_cam)
         detection["camera"] = T_world_cam
         return detection
