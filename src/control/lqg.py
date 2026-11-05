@@ -69,6 +69,7 @@ class arm_lqg:
         n = int(round(duration / self.dt))
         self.track(np.tile(self.goal, (n, 1)), np.zeros((n, 6)), np.zeros((n, 6)))
 
+
     ### follow joint velocity command 
     def servo(self, qd, duration):
         n = max(1, int(round(duration / self.dt)))
