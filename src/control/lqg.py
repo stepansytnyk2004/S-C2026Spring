@@ -65,6 +65,7 @@ class arm_lqg:
         n = int(round(duration / self.dt))
         self.track(np.tile(self.goal, (n, 1)), np.zeros((n, 6)), np.zeros((n, 6)))
 
+<<<<<<< HEAD
     ### follow joint velocity command 
     def servo(self, qd, duration):
         n = max(1, int(round(duration / self.dt)))
@@ -73,6 +74,8 @@ class arm_lqg:
         self.track(q_ref, np.tile(qd, (n, 1)), np.zeros((n, 6)))
         self.goal = q_ref[-1].copy()
 
+=======
+>>>>>>> 0be77e255e09804efee4c28eb5e8239a2f1a65e5
     ### move the tool to a pose, ik seeded from the estimated joint angles
     def move_to_pose(self, pose, duration, mask=None):
         q_target = solve_ikine_with_limits.solve(self.kin, pose, self.observer.q, mask=mask)
