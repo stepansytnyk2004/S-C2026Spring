@@ -32,7 +32,7 @@ def add_camera(tool):
                   pos=[CAMERA_POS[0] / 2, CAMERA_POS[1], CAMERA_POS[2] - 0.0125], rgba=[0.7, 0.7, 0.7, 1])
 
 
-### end effector picking up the jar (no gripper atm)
+### end effector picking up the target (no gripper atm)
 class holder:
     def __init__(self, model, data):
         self.model = model
@@ -53,7 +53,16 @@ class holder:
         self.offset = (rot.T @ (target.pos - pos), rot.T @ rot_jar.reshape(3, 3))  
         self.carrying = target
 
-    ### move held jar with tool
+    ### suction on if tool is on lid
+    def grip(self, target, reach_xy=0.012, reach_z=0.01):
+        pos, rot = self.tool_pose()
+        lid = target.pos + np.array([0.0, 0.0, target.height])  ### true lid, simulator side
+        if np.hypot(*(pos[:2] - lid[:2])) > reach_xy or abs(pos[2] - lid[2]) > reach_z:
+            return False
+        self.attach(target)
+        return True
+
+    ### move held target with tool
     def carry(self):
         pos, rot = self.tool_pose()
         pos_offset, rot_offset = self.offset
