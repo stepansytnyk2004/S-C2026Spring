@@ -10,7 +10,8 @@ from spatialmath import SE3
 from assets.objects import Basket, Table, Target
 from assets.ur3 import UR3
 from assets.camera import CAMERA_POS, CAMERA_SIZE, SURVEY_ANGLES, look_down_pose, project, rgbd, tool_from_camera
-from classes.movement import move_robot
+from classes.movement import kinematics, move_robot, solve_ikine_with_limits
+from src.control.pick import SEARCH_POSE
 
 
 FIGURE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "figures")
@@ -30,9 +31,12 @@ print("jar at", np.round(target.pos, 3))
 
 move_robot.solve(ur3, q_target=UR3.home_q, duration=1.5)  # back to home, wherever it started
 
+### same arm shape as the real search in pick.py
+start = solve_ikine_with_limits.solve(kinematics(ur3), tool_from_camera(look_down_pose(mount, 0.0)), np.asarray(SEARCH_POSE, dtype=float))
+
 for index, angle in enumerate(SURVEY_ANGLES):
     wanted = look_down_pose(mount, angle)
-    move_robot.solve(ur3, ikine=tool_from_camera(wanted), duration=2.5)
+    move_robot.solve(ur3, q_target=start + np.array([angle, 0.0, 0.0, 0.0, 0.0, 0.0]), duration=2.5)  ### base turned, same arm shape
     rgb, depth = camera.read()
 
     # checks: the camera ended where it was sent, and the mount maths agrees with mujoco's camera
@@ -44,7 +48,7 @@ for index, angle in enumerate(SURVEY_ANGLES):
     uv, z = camera.project(lid)
     fig, ax = plt.subplots(1, 2, figsize=(12, 4))
     ax[0].imshow(rgb)
-    if z[0] > 0:
+    if z[0] > 0 and 0 <= uv[0, 0] < CAMERA_SIZE[0] and 0 <= uv[0, 1] < CAMERA_SIZE[1]:  ### only when the lid is in the picture
         ax[0].plot(uv[0, 0], uv[0, 1], "r+", ms=14, mew=2, label="true lid centre")
         ax[0].legend(loc="upper right")
     ax[0].set_title(f"colour image, view {degrees(angle):+.0f} deg")
