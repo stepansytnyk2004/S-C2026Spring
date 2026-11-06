@@ -17,4 +17,4 @@ To run the demo, run the following command: `python main.py` (add `--camera` for
 
 ## Video
 
-[You can watch our demo video here:](PASTE_VIDEO_URL_HERE)
+[You can watch our demo video here:](https://www.youtube.com/watch?v=5WBcgFY3TSw)
