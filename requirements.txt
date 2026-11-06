@@ -1,5 +1,4 @@
 ### python 3.12, install with: python -m pip install -r requirements.txt
-### then run the two opencv lines in README.md, other packages pull in plain opencv-python which clashes with the contrib build
 
 ### maths and plotting
 numpy==1.26.4
