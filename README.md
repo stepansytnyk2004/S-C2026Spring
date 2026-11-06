@@ -7,7 +7,7 @@ Hello!
 We are Team 7 for the Sensors and Control Integrated Project. Our team members are:
 
 - Stepan Sytnyk (24960991)
-- Sebastian De Vries ()
+- Sebastian De Vries (25297375)
 
 For this project we have implemented a UR3 within MuJoCO that picks up a Candy Jar and places it into a basket. Through a wrist-mounted RGB-D camera, it is able to detect and move to the Candy Jar using PBVS. To prove functionality, the Candy Jar's location is randomized throughout each trial.
 
