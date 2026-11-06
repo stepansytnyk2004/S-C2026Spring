@@ -83,9 +83,6 @@ def run_trial(f, clock=0.0, record=None):
         for _ in range(FRAMES):
             clock += 0.1
             found = look(q_view)
-            if found is not None and np.linalg.norm(found["lid"][:2] - true_lid()[:2]) > 0.01:  # ground truth, debugging only
-                rgb, _ = camera.read()
-                plt.imsave(os.path.join(FIGURE_DIR, f"approach_off_{np.random.randint(10000)}.png"), rgb)
             if found is not None:
                 feed(f, found, clock, record)
     return clock, q_last
